@@ -24,7 +24,7 @@ var bodyParser  = require("body-parser"),
     request     = require("request"),
     querystring = require("querystring");
 
-var MONGO_URL = process.env.MONGOLAB_URI;
+var MONGO_URL = process.env.MONGO_URL;
 
 var KEY = process.env.RIOT_KEY;
 var KEY_QUERY = querystring.stringify({ api_key: KEY });

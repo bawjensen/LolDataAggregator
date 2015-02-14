@@ -1,7 +1,7 @@
 var MongoClient = require('mongodb').MongoClient,
     promise     = require('./helpers/promisedFunctions');
 
-var MONGO_IP = process.env.MONGO_IP;
+var MONGO_URL = process.env.MONGO_URL;
 
 function sendDataToDatabase() {
     promise.readJson('data-compiled/data.json')
@@ -13,7 +13,8 @@ function sendDataToDatabase() {
         // })
         .then(function connectToDatabase(mongoData) {
             return new Promise(function(resolve, reject) {
-                MongoClient.connect(MONGO_IP + '/lol-data', function callback(err, db) {
+                // MongoClient.connect(MONGO_URL, function callback(err, db) {
+                MongoClient.connect('mongodb://bawjensen:dummypass@104.154.39.115:80/lol-data', function callback(err, db) {
                     if (err) {
                         reject(Error(err));
                     }
