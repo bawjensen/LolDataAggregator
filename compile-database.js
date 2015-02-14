@@ -1,7 +1,10 @@
-var MongoClient = require('mongodb').MongoClient,
+var argv        = require('optimist').argv,
+    MongoClient = require('mongodb').MongoClient,
     promise     = require('./helpers/promisedFunctions');
 
-var MONGO_URL = process.env.MONGO_URL;
+var MONGO_URL = process.env.MONGO_URL_PREFIX + argv.db_ip + process.env.MONGO_URL_DB;
+
+console.log('Connecting to', MONGO_URL);
 
 function sendDataToDatabase() {
     promise.readJson('data-compiled/data.json')

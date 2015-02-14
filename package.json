@@ -21,6 +21,7 @@
   "homepage": "https://github.com/bawjensen/LolDataAggregator",
   "dependencies": {
     "mongodb": "^1.4.30",
+    "optimist": "^0.6.1",
     "request": "^2.53.0"
   }
 }

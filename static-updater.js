@@ -42,41 +42,7 @@ function updateStaticData() {
         .catch(function handleIt(err) {
             console.log(err.stack);
             throw err;
-        })
-        // .catch(function recoverFromDataExisting(err) {
-        //     console.log(err.message);
-        //     return null;
-        // })
-        // .then(function saveRecent(recentFile) {
-        //     console.log(' - Got most recent data');
-        //     return new Promise(function (resolve, reject) {
-        //         exec('rm -r dragontail/*', function(err, stdout, stderr) {
-        //             console.log(err ? ' = There was no old data' : ' - Removed old data');
-
-        //             if (recentFile) {
-        //                 console.log(recentFile);
-        //                 resolve(promise.save(SAVE_LOCATION, recentFile));
-        //             }
-        //             else {
-        //                 resolve();
-        //             }
-        //         });
-        //     });
-        // })
-        // .then(function() {
-        //     exec('tar zxf ' + SAVE_LOCATION, function(err, stdout, stderr) {
-        //         if (err) throw err;
-
-        //         console.log(' - Unpacked');
-
-        //         exec('rm -r ' + SAVE_LOCATION, function(err, stdout, stderr) {
-        //             console.log(err ? ' = Error with deleting downloaded archive' : ' - Deleted downloaded archive');
-        //         });
-        //     });
-        // })
-        // .catch(function(err) {
-        //     console.log(err.stack);
-        // });
+        });
 }
 
 updateStaticData();
