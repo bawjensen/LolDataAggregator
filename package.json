@@ -1,0 +1,26 @@
+{
+  "name": "loldata",
+  "version": "0.0.1",
+  "description": "Fetching data to power BuildsAndSkills",
+  "main": "none",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bawjensen/LolDataAggregator.git"
+  },
+  "author": "bawjensen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bawjensen/LolDataAggregator/issues"
+  },
+  "homepage": "https://github.com/bawjensen/LolDataAggregator",
+  "dependencies": {
+    "mongodb": "^1.4.30",
+    "request": "^2.53.0"
+  }
+}

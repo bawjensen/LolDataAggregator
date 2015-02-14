@@ -1,0 +1,1 @@
+Riot.DDragon.m={"n":{"item":"5.3.1","rune":"5.3.1","mastery":"4.17.1","summoner":"5.3.1","champion":"5.3.1","profileicon":"5.3.1","map":"5.3.1","ui":"5.3.1","language":"5.3.1"},"v":"5.3.1","l":"en_US","cdn":"http://ddragon.leagueoflegends.com/cdn","dd":"4.17.1","lg":"0.152.55","css":"0.152.55","profileiconmax":28};
