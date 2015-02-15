@@ -17,28 +17,21 @@ function convertChamps() {
 }
 
 function fetchMasteryData() {
-    var masteryIds = Object.keys(JSON.parse(fs.readFileSync('dragontail/current/data/en_US/mastery.json')).data);
+    var masteryTree = JSON.parse(fs.readFileSync('dragontail/current/data/en_US/mastery.json')).tree;
 
-    Promise.all(
-        masteryIds.map(function mapToFetch(id) {
-            return promise.persistentGet('https://na.api.pvp.net/api/lol/static-data/na/v1.2/mastery/' + id + '?masteryData=masteryTree&api_key=' + API_KEY)
-        })
-    )
-    .then(function mapIdToTree(masteryArray) {
-        var map = {};
+    var map = {};
 
-        masteryArray.forEach(function(masteryEntry) {
-            map[masteryEntry.id] = masteryEntry.masteryTree;
+    Object.keys(masteryTree).forEach(function handleBranch(branchName) { // Offense, Defense, Utility
+        var branch = masteryTree[branchName];
+        branch.forEach(function handleTier(tier) { // 0-5
+            tier.forEach(function handleSlot(slot) {
+                if (slot) // Checks for 'null' paddings
+                    map[slot.masteryId] = branchName;
+            });
         });
-
-        return map;
-    })
-    .then(function save(map) {
-        fs.writeFile('data-compiled/masteryTreeData.json', JSON.stringify(map));
-    })
-    .catch(function(err) {
-        console.log(err.stack);
     });
+
+    fs.writeFile('data-compiled/masteryTreeData.json', JSON.stringify(map));
 }
 
 convertChamps();
