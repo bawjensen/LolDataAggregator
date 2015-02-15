@@ -67,6 +67,7 @@ function persistentCallback(url, resolve, reject, err, resp, body) {
         }, parseInt(resp.headers['retry-after']));
     }
     else if (resp.statusCode === 503 || resp.statusCode === 504) {
+        console.log('Got', resp.statusCode, 'code, retrying in 0.1 sec');
         setTimeout(function() {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
         }, 100);
