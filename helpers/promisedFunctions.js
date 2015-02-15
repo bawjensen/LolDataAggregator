@@ -122,6 +122,39 @@ function promiseWait(milliseconds, data) {
     });
 }
 
+function promiseMongoInsert(collection, data) {
+    return new Promise(function insert(resolve, reject) {
+        collection.insert(data, function callback(err) {
+            if (err)
+                reject(Error(err));
+            else
+                resolve();
+        });
+    });
+}
+
+function promiseMongoSave(collection, data) {
+    return new Promise(function insert(resolve, reject) {
+        collection.save(data, function callback(err) {
+            if (err)
+                reject(Error(err));
+            else
+                resolve();
+        });
+    });
+}
+
+function promiseMongoClear(collection, query) {
+    return new Promise(function insert(resolve, reject) {
+        collection.remove({}, function callback(err) {
+            if (err)
+                reject(Error(err));
+            else
+                resolve();
+        });
+    });
+}
+
 module.exports = {
     save:               promiseSave,
     get:                promiseGet,
@@ -132,5 +165,8 @@ module.exports = {
     getPipe:            promisePipeFile,
     exec:               promiseExec,
     wait:               promiseWait,
-    rateLimitGet:       promiseRateLimitedGet
+    rateLimitGet:       promiseRateLimitedGet,
+    mongoInsert:        promiseMongoInsert,
+    mongoSave:          promiseMongoSave,
+    mongoClear:         promiseMongoClear
 }

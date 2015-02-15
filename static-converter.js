@@ -3,6 +3,19 @@ var fs      = require('fs'),
 
 var API_KEY = process.env.RIOT_KEY;
 
+function convertChamps() {
+    var data = JSON.parse(fs.readFileSync('dragontail/current/data/en_US/champion.json')).data;
+
+    var translatorObj = {};
+
+    for (var champName in data) {
+        var champId = parseInt(data[champName].key);
+        translatorObj[champName.toLowerCase()] = { id: champId, name: champName };
+    }
+
+    fs.writeFile('data-compiled/champsByName.json', JSON.stringify(translatorObj));
+}
+
 function fetchMasteryData() {
     var masteryIds = Object.keys(JSON.parse(fs.readFileSync('dragontail/current/data/en_US/mastery.json')).data);
 
@@ -28,4 +41,5 @@ function fetchMasteryData() {
     });
 }
 
+convertChamps();
 fetchMasteryData();
