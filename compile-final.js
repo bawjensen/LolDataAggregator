@@ -5,11 +5,11 @@ var fs          = require('fs'),
 
 var BASE_URL    = 'https://na.api.pvp.net';
 var API_KEY     = process.env.RIOT_KEY;
-var KEY_QUERY = querystring.stringify({ api_key: API_KEY });
+var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 
-var MATCH_ROUTE = '/api/lol/na/v2.2/match/';
-var RATE_LIMIT = 10; // Per 10 seconds
-var RATE_LIMIT_PERIOD = 10000; // 10 seconds
+var MATCH_ROUTE         = '/api/lol/na/v2.2/match/';
+var RATE_LIMIT          = 10; // Per 10 seconds
+var RATE_LIMIT_PERIOD   = 10000; // 10 seconds
 
 function convertToObject(runesOrMasteries) {
     var newObj = {};
@@ -178,7 +178,8 @@ function compileData() {
                                             ],
                             date:           matchEntry.matchCreation,
                             skillOrder:     participant.skills,
-                            buyOrder:       buyOrder
+                            buyOrder:       buyOrder,
+                            uniqueId:       parseInt('' + matchEntry.matchId + participant.participantId)
                         });
                     });
                 }) // Limit on how many
