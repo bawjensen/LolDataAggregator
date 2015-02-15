@@ -9,7 +9,7 @@ var CHALLENGER_ROUTE = '/api/lol/na/v2.5/league/challenger';
 var KEY_QUERY = querystring.stringify({ api_key: API_KEY });
 
 function compilePlayers() {
-    promise.getJson(BASE_URL + CHALLENGER_ROUTE + '?' + querystring.stringify({ type: 'RANKED_SOLO_5x5' }) + '&' + KEY_QUERY)
+    promise.persistentGet(BASE_URL + CHALLENGER_ROUTE + '?' + querystring.stringify({ type: 'RANKED_SOLO_5x5' }) + '&' + KEY_QUERY)
         .then(function parseOut(LeagueDto) {
             var players = {};
             var entries = LeagueDto.entries;
