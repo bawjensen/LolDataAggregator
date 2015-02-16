@@ -62,7 +62,7 @@ function promiseJsonGet(url) {
 function persistentCallback(url, resolve, reject, err, resp, body) {
     if (err) {
         console.log('Issue with: ' + url);
-        reject(Error(err));
+        reject(err);
     }
     else if (resp.statusCode === 429) {
         setTimeout(function() {
