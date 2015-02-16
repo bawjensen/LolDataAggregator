@@ -3,6 +3,9 @@ var exec    = require('child_process').exec,
     request = require('request');
 
 function promiseCatchAndQuit(err) {
+    console.log('Catching an error in a promise, and quitting');
+    console.log(err);
+    console.log(err.type)
     console.log(err.stack);
     process.exit(1);
 }
@@ -67,10 +70,14 @@ function persistentCallback(url, resolve, reject, err, resp, body) {
         }, parseInt(resp.headers['retry-after']));
     }
     else if (resp.statusCode === 503 || resp.statusCode === 504) {
-        console.log('Got', resp.statusCode, 'code, retrying in 0.1 sec');
+        console.log('Got', resp.statusCode, 'code, retrying in 0.5 sec');
         setTimeout(function() {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
-        }, 100);
+        }, 500);
+    }
+    else if (resp.type === 'ECONNRESET') {
+        console.log('The request had a "socket hang up", retrying immediately');
+        request.get(url, persistentCallback.bind(null, url, resolve, reject));
     }
     else if (resp.statusCode != 200) {
         reject(Error('Resp status code not 200: ' + resp.statusCode + '(' + url + ')'));
