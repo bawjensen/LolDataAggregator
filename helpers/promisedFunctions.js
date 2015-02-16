@@ -5,7 +5,7 @@ var exec    = require('child_process').exec,
 function promiseCatchAndQuit(err) {
     console.log('Catching an error in a promise, and quitting');
     console.log(err);
-    console.log(err.type)
+    console.log(err.code)
     console.log(err.stack);
     process.exit(1);
 }
