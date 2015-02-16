@@ -7,7 +7,6 @@ var MONGO_URL = process.env.MONGO_URL_PREFIX + (argv.db_ip || 'localhost:27017')
 var NUM_TO_STORE = 50;
 
 function sendDataToDatabase() {
-    var earliestDate;
     var newChampsData;
     var staticChampsData;
     var mongoDb;
@@ -15,14 +14,6 @@ function sendDataToDatabase() {
     promise.readJson('data-compiled/data.json')
         .then(function findEarliestDate(data) {
             newChampsData = data;
-
-            var earliest = Infinity;
-
-            data.forEach(function(entry) {
-                earliest = entry.date < earliest ? entry.date : earliest;
-            });
-
-            earliestDate = earliest;
         })
         .then(function readAllChampionIds() {
             return promise.readJson('./data-compiled/champsByName.json')
@@ -64,9 +55,17 @@ function sendDataToDatabase() {
                         console.log('Fetching more to make', NUM_TO_STORE);
                         var numToFetch = NUM_TO_STORE - numNew;
 
+                        var earliestDate = Infinity;
+
+                        newChampData.forEach(function(entry) {
+                            earliestDate = entry.date < earliestDate ? entry.date : earliestDate;
+                        });
+
+                        // console.log(entry.name, 'latest old game:', earliestDate);
+
                         promiseBuffer = new Promise(function(resolve, reject) {
                             mongoDb.collection('champData').find({ champId: entry.id, date: { $lt: earliestDate } }).sort({ date: -1 }).limit(numToFetch).toArray(function(err, oldGames) {
-                                // console.log('Got', oldGames.length, 'old games for', entry.name);
+                                console.log('Got', oldGames.length, 'old games for', entry.name, 'vs', newChampData.length, 'new games');
                                 newChampData.push.apply(newChampData, oldGames);
                                 resolve(newChampData);
                             });

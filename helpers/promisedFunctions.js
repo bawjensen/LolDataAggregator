@@ -75,10 +75,6 @@ function persistentCallback(url, resolve, reject, err, resp, body) {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
         }, 500);
     }
-    else if (resp.type === 'ECONNRESET') {
-        console.log('The request had a "socket hang up", retrying immediately');
-        request.get(url, persistentCallback.bind(null, url, resolve, reject));
-    }
     else if (resp.statusCode != 200) {
         reject(Error('Resp status code not 200: ' + resp.statusCode + '(' + url + ')'));
     }
@@ -91,7 +87,12 @@ function persistentPromiseGet(url) {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
         })
         .then(JSON.parse)
-        .catch(promiseCatchAndQuit);
+        .catch(function(err) {
+            if (err.code === 'ECONNRESET')
+                persistentPromiseGet(url);
+            else
+                throw err;
+        });
 }
 
 function promiseRateLimitedGet(list, groupSize, promiseMapper, matchHandler) {
