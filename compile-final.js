@@ -8,7 +8,6 @@ var API_KEY     = process.env.RIOT_KEY;
 var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 
 var MATCH_ROUTE         = '/api/lol/na/v2.2/match/';
-var RATE_LIMIT          = 3000; // Per 10 seconds
 
 function convertToObject(runesOrMasteries) {
     var newObj = {};
@@ -127,7 +126,7 @@ function compileData() {
 
             var champDataArray = [];
 
-            return promise.rateLimitGet(matches, RATE_LIMIT,
+            return promise.groupedGet(matches, 200,
                 function mapMatch(matchId) { // How to map a match to a promise request
                     return promise.persistentGet(BASE_URL + MATCH_ROUTE + matchId + '?' + includeTimelineQuery + '&' + KEY_QUERY);
                 },
@@ -181,7 +180,7 @@ function compileData() {
                             uniqueId:       parseInt('' + matchEntry.matchId + participant.participantId)
                         });
                     });
-                }) // Limit on how many
+                })
                 .then(function() {
                     return champDataArray; // Funnel data into the save step
                 });

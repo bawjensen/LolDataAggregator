@@ -4,11 +4,9 @@ var request     = require('request'),
 
 var BASE_URL    = 'https://na.api.pvp.net';
 var API_KEY     = process.env.RIOT_KEY;
-var KEY_QUERY = querystring.stringify({ api_key: API_KEY });
+var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 
 var MATCH_HISTORY_ROUTE = '/api/lol/na/v2.2/matchhistory/'
-
-var RATE_LIMIT = 3000; // Per 10 seconds
 
 function compileMatches() {
     promise.readJson('data-compiled/players.json')
@@ -21,7 +19,7 @@ function compileMatches() {
 
             var baseRoute = BASE_URL + MATCH_HISTORY_ROUTE;
 
-            return promise.rateLimitGet(players, RATE_LIMIT,
+            return promise.groupedGet(players, 200,
                 function mapMatch(id) { // How to map a match to a promise request
                     return promise.persistentGet(baseRoute + id + '?' + KEY_QUERY);
                 },
