@@ -8,7 +8,7 @@ var KEY_QUERY = querystring.stringify({ api_key: API_KEY });
 
 var MATCH_HISTORY_ROUTE = '/api/lol/na/v2.2/matchhistory/'
 
-var RATE_LIMIT = 10; // Per 10 seconds
+var RATE_LIMIT = 3000; // Per 10 seconds
 
 function compileMatches() {
     promise.readJson('data-compiled/players.json')

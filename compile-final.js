@@ -8,8 +8,7 @@ var API_KEY     = process.env.RIOT_KEY;
 var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 
 var MATCH_ROUTE         = '/api/lol/na/v2.2/match/';
-var RATE_LIMIT          = 10; // Per 10 seconds
-var RATE_LIMIT_PERIOD   = 10000; // 10 seconds
+var RATE_LIMIT          = 3000; // Per 10 seconds
 
 function convertToObject(runesOrMasteries) {
     var newObj = {};
