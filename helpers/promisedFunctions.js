@@ -108,7 +108,7 @@ function promiseRateLimitedGet(list, groupSize, promiseMapper, matchHandler) {
             return Promise.all(matchesGroup.map(promiseMapper))
                 .then(function assignData(matchesArray) {
                     matchesArray.forEach(matchHandler); // This is where the magic happens - data extracted *outside* of promises
-                    console.log('Finished ' + (i + 1) * 10 + ', sending out the next set of requests');
+                    console.log('Finished at least', (i + 1) * groupSize, ' sending out the next set of requests');
                 })
             });
         }, Promise.resolve());
