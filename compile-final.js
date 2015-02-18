@@ -126,11 +126,13 @@ function compileData() {
 
             var champDataArray = [];
 
-            return promise.groupedGet(matches, 200,
+            return promise.groupedGet(matches, 50,
                 function mapMatch(matchId) { // How to map a match to a promise request
                     return promise.persistentGet(BASE_URL + MATCH_ROUTE + matchId + '?' + includeTimelineQuery + '&' + KEY_QUERY);
                 },
                 function handleMatch(matchEntry) { // How to handle a match's response data
+                    if (!matchEntry) return;
+                    
                     parseSkillsAndBuysFromTimeline(matchEntry);
 
                     matchEntry.participants.forEach(function handleParticipant(participant, i) {

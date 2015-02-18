@@ -19,7 +19,7 @@ function compileMatches() {
 
             var baseRoute = BASE_URL + MATCH_HISTORY_ROUTE;
 
-            return promise.groupedGet(players, 200,
+            return promise.groupedGet(players, 50,
                 function mapMatch(id) { // How to map a match to a promise request
                     return promise.persistentGet(baseRoute + id + '?' + KEY_QUERY);
                 },

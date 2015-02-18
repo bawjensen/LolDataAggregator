@@ -75,7 +75,10 @@ function persistentCallback(url, resolve, reject, err, resp, body) {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
         }, 500);
     }
-    else if (resp.statusCode != 200) {
+    else if (resp.statusCode === 404) {
+        resolve('null'); // Return nothing
+    }
+    else if (resp.statusCode !== 200) {
         reject(Error('Resp status code not 200: ' + resp.statusCode + '(' + url + ')'));
     }
     else {
@@ -108,7 +111,7 @@ function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
             return Promise.all(matchesGroup.map(promiseMapper))
                 .then(function assignData(matchesArray) {
                     matchesArray.forEach(matchHandler); // This is where the magic happens - data extracted *outside* of promises
-                    console.log('Finished at least', (i + 1) * groupSize, 'sending out the next set of requests');
+                    console.log('Finished batch ending with', (i + 1) * groupSize, 'sending out the next set of requests');
                 })
             });
         }, Promise.resolve());
