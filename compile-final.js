@@ -78,25 +78,31 @@ function parseSkillsAndBuysFromTimeline(matchEntry) {
     matchEntry.timeline.frames.forEach(function handleFrame(frame, i) {
         if (!frame.events) return;
 
-        frame.events.forEach(function handleEvent(evt) {
-            if (evt.eventType === 'SKILL_LEVEL_UP') {
+        frame.events.forEach(function handleEvent(evt, j) {
+            if (evt.eventType === 'SKILL_LEVEL_UP' || evt.eventType === 'ITEM_PURCHASED' || evt.eventType === 'ITEM_UNDO') {
                 var id = evt.participantId - 1; // Adjust the index by 1
                 var participant = matchEntry.participants[id];
 
-                if (!(participant.skills))
-                    participant.skills = [];
+                if (evt.eventType === 'SKILL_LEVEL_UP') {
+                    if (!(participant.skills))
+                        participant.skills = [];
 
-                participant.skills.push(evt.skillSlot);
-            }
-            else if (evt.eventType === 'ITEM_PURCHASED') {
-                var id = evt.participantId - 1; // Adjust the index by 1
-                var participant = matchEntry.participants[id];
+                    participant.skills.push(evt.skillSlot);
+                }
+                else if (evt.eventType === 'ITEM_PURCHASED') {
+                    if (!(participant.buys))
+                        participant.buys = [];
 
-                if (!(participant.buys))
-                    participant.buys = [];
-
-
-                participant.buys.push({ time: evt.timestamp, id: evt.itemId });
+                    participant.buys.push({ time: evt.timestamp, id: evt.itemId });
+                }
+                else if (evt.eventType === 'ITEM_UNDO') {
+                    for (var i = participant.buys.length - 1; i >= 0; i--) {
+                        if (participant.buys[i].id === evt.itemBefore) {
+                            participant.buys.splice(i, 1); // Remove the 1 item at i
+                            break;
+                        }
+                    }
+                }
             }
         });
     });
@@ -163,23 +169,23 @@ function compileData() {
                             kills:          participant.stats.kills,
                             deaths:         participant.stats.deaths,
                             assists:        participant.stats.assists,
-                            finalBuild:     [
-                                                participant.stats.item0,
-                                                participant.stats.item1,
-                                                participant.stats.item2,
-                                                participant.stats.item3,
-                                                participant.stats.item4,
-                                                participant.stats.item5,
-                                                participant.stats.item6
-                                            ],
+                            // finalBuild:     [
+                            //                     participant.stats.item0,
+                            //                     participant.stats.item1,
+                            //                     participant.stats.item2,
+                            //                     participant.stats.item3,
+                            //                     participant.stats.item4,
+                            //                     participant.stats.item5,
+                            //                     participant.stats.item6
+                            //                 ],
                             summonerSpells: [
                                                 participant.spell1Id,
                                                 participant.spell2Id
                                             ],
                             date:           matchEntry.matchCreation,
                             skillOrder:     participant.skills,
-                            buyOrder:       buyOrder,
-                            uniqueId:       parseInt('' + matchEntry.matchId + participant.participantId)
+                            buyOrder:       buyOrder
+                            // uniqueId:       parseInt('' + matchEntry.matchId + participant.participantId)
                         });
                     });
                 })
