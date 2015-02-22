@@ -67,7 +67,6 @@ function groupPurchases(buys) {
         }
 
         grouped.push(subGroup);
-        i++;
     }
 
     return grouped;
