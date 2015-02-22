@@ -186,7 +186,8 @@ function compileData() {
                                             ],
                             date:           matchEntry.matchCreation,
                             skillOrder:     participant.skills,
-                            buyOrder:       buyOrder
+                            buyOrder:       buyOrder,
+                            matchId:        matchEntry.matchId
                             // finalBuild:     [
                             //                     participant.stats.item0,
                             //                     participant.stats.item1,
