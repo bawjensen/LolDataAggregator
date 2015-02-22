@@ -9,19 +9,18 @@ var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 
 var MATCH_ROUTE         = '/api/lol/na/v2.2/match/';
 
-function convertToObject(runesOrMasteries) {
+function convertArrayToObject(runesOrMasteries) {
     var newObj = {};
 
     for (var i in runesOrMasteries) {
         var runeOrMastery = runesOrMasteries[i];
 
         var key;
-        if (runeOrMastery.runeId) {
+        if (runeOrMastery.runeId)
             key = 'runeId';
-        }
-        else {
+        else
             key = 'masteryId';
-        }
+        
         newObj[runeOrMastery[key]] = runeOrMastery.rank;
     }
 
@@ -80,8 +79,9 @@ function parseSkillsAndBuysFromTimeline(matchEntry) {
 
         frame.events.forEach(function handleEvent(evt, j) {
             if (evt.eventType === 'SKILL_LEVEL_UP' || evt.eventType === 'ITEM_PURCHASED' || evt.eventType === 'ITEM_UNDO') {
-                var id = evt.participantId - 1; // Adjust the index by 1
-                var participant = matchEntry.participants[id];
+
+                var participantIndex = evt.participantId - 1; // Adjust the id by 1 to get the index
+                var participant = matchEntry.participants[participantIndex];
 
                 if (evt.eventType === 'SKILL_LEVEL_UP') {
                     if (!(participant.skills))
@@ -111,7 +111,6 @@ function parseSkillsAndBuysFromTimeline(matchEntry) {
 function compileData() {
     var start = new Date().getTime();
 
-
     var limit = Infinity;
     var limitStart = 0;
     if (process.argv[2] && process.argv[3]) {
@@ -124,7 +123,13 @@ function compileData() {
         console.log('Limiting to ' + limit + ' matches');
     }
 
-    promise.readJson('data-compiled/matches.json')
+    var runeStaticData;
+
+    promise.readJson('data-compiled/runes.json')
+        .then(function loadDynamic(runeStatic) {
+            runeStaticData = runeStatic;
+            return promise.readJson('data-compiled/matches.json');
+        })
         .then(function fetchMatches(matches) {
             var matches = matches.slice(limitStart, limit);
 
@@ -152,23 +157,37 @@ function compileData() {
                             // champDataArray[champId] = [];
 
                         var buyOrder = groupPurchases(participant.buys);
-                        var runes = convertToObject(participant.runes);
-                        var masteries = convertToObject(participant.masteries);
+                        var masteries = convertArrayToObject(participant.masteries);
+
+                        var runeTree =  {};
+                        participant.runes.forEach(function(rune) {
+                            var runeType = runeStaticData[rune.runeId].type;
+                            if (!(runeType in runeTree))
+                                runeTree[runeType] = {};
+
+                            runeTree[runeType][rune.runeId] = rune.rank;
+                        })
 
                         var masterySummary = extractMasterySummary(participant.masteries);
 
-                        // matchDataObjs.push({
                         champDataArray.push ({
                             champId:        participant.championId,
                             summonerName:   matchEntry.participantIdentities[i].player.summonerName,
                             winner:         participant.stats.winner,
-                            runes:          runes,
+                            runes:          runeTree,
                             masteries:      masteries,
                             masterySummary: masterySummary,
                             lane:           participant.timeline.lane,
                             kills:          participant.stats.kills,
                             deaths:         participant.stats.deaths,
                             assists:        participant.stats.assists,
+                            summonerSpells: [
+                                                participant.spell1Id,
+                                                participant.spell2Id
+                                            ],
+                            date:           matchEntry.matchCreation,
+                            skillOrder:     participant.skills,
+                            buyOrder:       buyOrder
                             // finalBuild:     [
                             //                     participant.stats.item0,
                             //                     participant.stats.item1,
@@ -178,14 +197,6 @@ function compileData() {
                             //                     participant.stats.item5,
                             //                     participant.stats.item6
                             //                 ],
-                            summonerSpells: [
-                                                participant.spell1Id,
-                                                participant.spell2Id
-                                            ],
-                            date:           matchEntry.matchCreation,
-                            skillOrder:     participant.skills,
-                            buyOrder:       buyOrder
-                            // uniqueId:       parseInt('' + matchEntry.matchId + participant.participantId)
                         });
                     });
                 })
