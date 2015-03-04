@@ -49,6 +49,7 @@ function sendDataToDatabase() {
 
                     if (numNew >= NUM_TO_STORE) {
                         console.log('Cutting down to', NUM_TO_STORE);
+                        newChampData.sort(function(a, b) { return a.date > b.date ? -1 : a.date < b.date ? 1 : 0; });
                         promiseBuffer = Promise.resolve(newChampData.slice(0, NUM_TO_STORE));
                     }
                     else {
