@@ -152,22 +152,21 @@ function compileData() {
                             throw new Error('Issue: The participant index (' + i + ') doesn\'t match the id (' + participant.participantId + ')');
                         }
 
-                        // if (!(champId in champDataArray))
-                            // champDataArray[champId] = [];
-
                         var buyOrder = groupPurchases(participant.buys);
-                        var masteries = convertArrayToObject(participant.masteries);
+                        var masteries = participant.masteries ? convertArrayToObject(participant.masteries) : {};
+                        var masterySummary = participant.masteries ? extractMasterySummary(participant.masteries) : {};
 
                         var runeTree =  {};
-                        participant.runes.forEach(function(rune) {
-                            var runeType = runeStaticData[rune.runeId].type;
-                            if (!(runeType in runeTree))
-                                runeTree[runeType] = {};
+                        if (participant.runes) {
+                            participant.runes.forEach(function(rune) {
+                                var runeType = runeStaticData[rune.runeId].type;
+                                if (!(runeType in runeTree))
+                                    runeTree[runeType] = {};
 
-                            runeTree[runeType][rune.runeId] = rune.rank;
-                        })
+                                runeTree[runeType][rune.runeId] = rune.rank;
+                            });
+                        }
 
-                        var masterySummary = extractMasterySummary(participant.masteries);
 
                         champDataArray.push ({
                             champId:        participant.championId,
