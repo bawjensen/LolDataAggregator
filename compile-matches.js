@@ -24,6 +24,11 @@ function compileMatches() {
                     return promise.persistentGet(baseRoute + id + '?' + KEY_QUERY);
                 },
                 function handleMatch(matchHistoryEntry) { // How to handle a match's response data
+                    if (!matchHistoryEntry) {
+                        console.log('Match didn\'t exist');
+                        return;
+                    }
+
                     var matches = matchHistoryEntry.matches;
 
                     for (var i in matches) {

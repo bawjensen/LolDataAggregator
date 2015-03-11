@@ -7,7 +7,7 @@ var BASE_URL    = 'https://na.api.pvp.net';
 var API_KEY     = process.env.RIOT_KEY;
 var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 
-var MATCH_ROUTE         = '/api/lol/na/v2.2/match/';
+var MATCH_ROUTE = '/api/lol/na/v2.2/match/';
 
 function convertArrayToObject(runesOrMasteries) {
     var newObj = {};
@@ -45,6 +45,32 @@ function extractMasterySummary(masteries) {
     return trees;
 }
 
+function parseMaxOrder(skills) {
+    var maxOrder = [];
+
+    var ranks = {};
+    skills.forEach(function(skill) {
+        if (!ranks[skill])
+            ranks[skill] = 0;
+
+        ++ranks[skill];
+
+        if (ranks[skill] === 5)
+            maxOrder.push(skill);
+    });
+
+    Object.keys(ranks)
+        .map(function(skillKey) { return { key: skillKey, rank: ranks[skillKey] }; })
+        .sort(function(a, b) { return a.rank < b.rank ? 1 : a.rank > b.rank ? -1 : 0; })
+        .forEach(function(skill) {
+            var skillId = parseInt(skill.key); // Undoing automatic stringification of keys by javascript
+            if (skillId !== 4 && maxOrder.indexOf(skillId) === -1)
+                maxOrder.push(skillId);
+        });
+
+    return maxOrder;
+}
+
 function groupPurchases(buys) {
     if (!buys)
         return [];
@@ -72,7 +98,7 @@ function groupPurchases(buys) {
     return grouped;
 }
 
-function parseSkillsAndBuysFromTimeline(matchEntry) {
+function parseSkillsAndBuys(matchEntry) {
     matchEntry.timeline.frames.forEach(function handleFrame(frame, i) {
         if (!frame.events) return;
 
@@ -105,6 +131,189 @@ function parseSkillsAndBuysFromTimeline(matchEntry) {
             }
         });
     });
+
+    matchEntry.participants.forEach(function(participant) {
+        if (participant.skills)
+            participant.skillMaxOrder = parseMaxOrder(participant.skills);
+        else
+            console.log('Match:', matchEntry.matchId, 'participant:', participant.participantId, 'has no skills');
+        participant.buys = groupPurchases(participant.buys);
+    });
+}
+
+var MIDDLE_LANE = 'middle',
+    JUNGLE_ROLE = 'jungle',
+    TOP_LANE = 'top',
+    BOTTOM_LANE = 'bottom',
+    ADC_ROLE = 'adc',
+    SUPPORT_ROLE = 'support';
+
+function checkIsTopLaner(participant) {
+
+}
+
+var SMITE_ID = 11;
+function checkIsJungler(participant) {
+    return (participant.spell1Id === SMITE_ID || participant.spell2Id === SMITE_ID);
+}
+
+function checkIsMidLaner(participant) {
+
+}
+
+function checkIsAdc(participant) {
+
+}
+
+var SUPPORT_ROLE_START_ITEMS = [
+    '2010', // Total Biscuit of Rejuvenation
+    '3301', // Ancient Coin
+    '3302', // Relic Shield
+    '3303'  // Spellthief's Edge
+];
+function checkIsSupport(participant) {
+    var flag = false;
+
+    if (participant.buys) {
+        flag = Object.keys(participant.buys[0]).some(function(initialItemId) {
+            return SUPPORT_ROLE_START_ITEMS.indexOf(initialItemId) !== -1;
+        });
+    }
+    else
+        console.log('Failed finding buys to classify', participant.participantId);
+
+    return flag;
+}
+
+function parseRoles(matchEntry) {
+    var teams = {};
+
+    matchEntry.participants.forEach(function(participant) {
+        var teamId = participant.teamId;
+        var lane = participant.timeline.lane = participant.timeline.lane.toLowerCase();
+        participant.timeline.role = participant.timeline.role.toLowerCase();
+
+        if (!(teamId in teams)) {
+            teams[teamId] = {};
+
+            teams[teamId][TOP_LANE] = [];
+            teams[teamId][JUNGLE_ROLE] = [];
+            teams[teamId][MIDDLE_LANE] = [];
+            teams[teamId][BOTTOM_LANE] = [];
+        }
+
+        teams[teamId][lane].push(participant);
+    });
+
+    var expectedAmounts = {};
+    expectedAmounts[TOP_LANE] = 1;
+    expectedAmounts[JUNGLE_ROLE] = 1;
+    expectedAmounts[MIDDLE_LANE] = 1;
+    expectedAmounts[BOTTOM_LANE] = 2;
+
+    var campedLanes = [TOP_LANE, MIDDLE_LANE, BOTTOM_LANE]; // Lanes often camped by jungler, might cause misclassification
+
+    for (var teamId in teams) {
+        var team = teams[teamId];
+
+        var flagged = false, // Flagging an issue with the team comp/lanes
+            fixed = false; // Flagging whether the issue was fixed
+
+        for (var lane in expectedAmounts) {
+            if (team[lane].length !== expectedAmounts[lane]) {
+                flagged = true;
+            }
+        }
+
+        // Set initial baseline roles
+        team[BOTTOM_LANE].forEach(function(botLaner) {
+            botLaner.role = (botLaner.timeline.role === 'duo_support') ? SUPPORT_ROLE : ADC_ROLE;
+        });
+
+        team[MIDDLE_LANE].forEach(function(midLaner) { midLaner.role = MIDDLE_LANE; });
+        team[JUNGLE_ROLE].forEach(function(jungler) { jungler.role = JUNGLE_ROLE; });
+        team[TOP_LANE].forEach(function(topLaner) { topLaner.role = TOP_LANE; });
+
+
+        // Attempt simple fixes for normal lane mixups
+        if (flagged) {
+            // Fixing: a jungler camping botlane and getting misclassified
+            if (team[BOTTOM_LANE].length === 3 && team[JUNGLE_ROLE].length === 0) {
+                team[BOTTOM_LANE].forEach(function(botLaner, index) {
+                    if (checkIsJungler(botLaner)) {
+                        botLaner.role = JUNGLE_ROLE;
+                        team[JUNGLE_ROLE].push(team[BOTTOM_LANE].splice(index, 1));
+                    }
+                });
+
+                fixed = true;
+            }
+
+            // Fixing: a likely lane swap
+            if (team[TOP_LANE].length === 2 && team[BOTTOM_LANE].length === 1 && team[MIDDLE_LANE].length === 1 && team[JUNGLE_ROLE].length === 1) {
+                // Swap top and bottom
+                var temp = team[BOTTOM_LANE];
+                team[BOTTOM_LANE] = team[TOP_LANE];
+                team[TOP_LANE] = temp;
+
+                // Reset roles
+                team[BOTTOM_LANE].forEach(function(botLaner) {
+                    botLaner.role = (botLaner.timeline.role === 'duo_carry') ? ADC_ROLE : SUPPORT_ROLE;
+                });
+                team[TOP_LANE].forEach(function(topLaner) { topLaner.role = TOP_LANE; });
+
+                fixed = true;
+            }
+
+            // Fixing: junglers camping a solo lane so much they're classified as a laner, or a solo laner roaming so much they're a jungler
+            campedLanes.forEach(function(campedLane) {
+                if ((team[campedLane].length === 2 && team[JUNGLE_ROLE].length === 0) || (team[campedLane].length === 0 && team[JUNGLE_ROLE].length === 2)) {
+                    var overloadedRole = team[campedLane].length === 2 ? campedLane : JUNGLE_ROLE;
+
+                    team[overloadedRole].forEach(function(laner, index) {
+                        laner.role = checkIsJungler(laner) ? JUNGLE_ROLE : campedLane;
+                        if (laner.role !== overloadedRole) {
+                            team[laner.role].push(team[overloadedRole].splice(index, 1));
+                        }
+                    });
+
+                    fixed = true;
+                }
+            });
+
+            // Fixing: a roaming support/adc getting classified as a jungler
+            if (team[BOTTOM_LANE].length === 1 && team[JUNGLE_ROLE].length === 2) {
+                var issueWithJungler = false;
+                team[JUNGLE_ROLE].forEach(function(jungler, index) {
+                    jungler.role = checkIsSupport(jungler) ? SUPPORT_ROLE : checkIsJungler(jungler) ? JUNGLE_ROLE : checkIsSupport(team[BOTTOM_LANE][0]) ? ADC_ROLE : undefined;
+
+                    if (jungler.role === SUPPORT_ROLE || jungler.role === ADC_ROLE) {
+                        team[BOTTOM_LANE].push(team[JUNGLE_ROLE].splice(index, 1));
+                    }
+
+                    if (!jungler.role) {
+                        console.log('ISSUE:', matchEntry.matchId);
+                        console.log('Unknown:', matchEntry.participantIdentities[jungler.participantId-1].player.summonerName);
+                        issueWithJungler = true;
+                    }
+                });
+
+                if (!issueWithJungler)
+                    fixed = true;
+                else {
+                    console.log(JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
+                    team[TOP_LANE].forEach(function(topLaner) {
+                        console.log('Top laner:', matchEntry.participantIdentities[topLaner.participantId-1].player.summonerName);
+                    });
+                }
+            }
+        }
+
+        if (flagged && !fixed) {
+            matchEntry.participants.forEach(function(participant) { participant.roleUnclear = true; });
+            console.log('Flagging people in game:', matchEntry.matchId, 'team:', teamId, '-', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
+        }
+    }
 }
 
 function compileData() {
@@ -141,18 +350,28 @@ function compileData() {
                     return promise.persistentGet(BASE_URL + MATCH_ROUTE + matchId + '?' + includeTimelineQuery + '&' + KEY_QUERY);
                 },
                 function handleMatch(matchEntry) { // How to handle a match's response data
-                    if (!matchEntry) return;
-                    
-                    parseSkillsAndBuysFromTimeline(matchEntry);
+                    if (!matchEntry) {
+                        console.log('Ignoring match')
+                        return;
+                    }
+                    else if (!matchEntry.timeline) {
+                        console.log('Ignoring match', matchEntry.matchId, 'as it has no timeline');
+                        return;
+                    }
+
+                    parseSkillsAndBuys(matchEntry);
+                    parseRoles(matchEntry);
 
                     matchEntry.participants.forEach(function handleParticipant(participant, i) {
+                        if (participant.roleUnclear) return; // Ignore all participants that may be unclear in their roles
+                        if (!participant.skills) return; // Ignore champs that haven't skilled anything (likely afk)
+
                         var champId = participant.championId;
 
                         if (participant.participantId != i+1) {
                             throw new Error('Issue: The participant index (' + i + ') doesn\'t match the id (' + participant.participantId + ')');
                         }
 
-                        var buyOrder = groupPurchases(participant.buys);
                         var masteries = participant.masteries ? convertArrayToObject(participant.masteries) : {};
                         var masterySummary = participant.masteries ? extractMasterySummary(participant.masteries) : {};
 
@@ -167,7 +386,6 @@ function compileData() {
                             });
                         }
 
-
                         champDataArray.push ({
                             champId:        participant.championId,
                             summonerName:   matchEntry.participantIdentities[i].player.summonerName,
@@ -175,7 +393,7 @@ function compileData() {
                             runes:          runeTree,
                             masteries:      masteries,
                             masterySummary: masterySummary,
-                            lane:           participant.timeline.lane,
+                            role:           participant.role,
                             kills:          participant.stats.kills,
                             deaths:         participant.stats.deaths,
                             assists:        participant.stats.assists,
@@ -185,7 +403,8 @@ function compileData() {
                                             ],
                             date:           matchEntry.matchCreation,
                             skillOrder:     participant.skills,
-                            buyOrder:       buyOrder,
+                            skillMaxOrder:  participant.skillMaxOrder,
+                            buyOrder:       participant.buys,
                             matchId:        matchEntry.matchId
                             // finalBuild:     [
                             //                     participant.stats.item0,
@@ -204,7 +423,7 @@ function compileData() {
                 });
         })
         .then(function saveData(champDataArray) {
-            console.log(((new Date().getTime() - start) / 1000 / 3600) + ' hours');
+            console.log(((new Date().getTime() - start) / 1000 / 60) + ' minutes');
 
             promise.save('data-compiled/data.json', JSON.stringify(champDataArray));
         })
