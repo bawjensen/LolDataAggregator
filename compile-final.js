@@ -216,6 +216,8 @@ function parseRoles(matchEntry) {
     for (var teamId in teams) {
         var team = teams[teamId];
 
+        // console.log('before:', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
+
         var flagged = false, // Flagging an issue with the team comp/lanes
             fixed = false; // Flagging whether the issue was fixed
 
@@ -227,7 +229,7 @@ function parseRoles(matchEntry) {
 
         // Set initial baseline roles
         team[BOTTOM_LANE].forEach(function(botLaner) {
-            botLaner.role = (botLaner.timeline.role === 'duo_support') ? SUPPORT_ROLE : ADC_ROLE;
+            botLaner.role = (botLaner.timeline.role === 'duo_support') ? SUPPORT_ROLE : ADC_ROLE; // Note: defaults to ADC
         });
 
         team[MIDDLE_LANE].forEach(function(midLaner) { midLaner.role = MIDDLE_LANE; });
@@ -240,9 +242,13 @@ function parseRoles(matchEntry) {
             // Fixing: a jungler camping botlane and getting misclassified
             if (team[BOTTOM_LANE].length === 3 && team[JUNGLE_ROLE].length === 0) {
                 team[BOTTOM_LANE].forEach(function(botLaner, index) {
+                    // Check for junglers and supports because everything defaults to adc
                     if (checkIsJungler(botLaner)) {
                         botLaner.role = JUNGLE_ROLE;
                         team[JUNGLE_ROLE].push(team[BOTTOM_LANE].splice(index, 1));
+                    }
+                    else if (checkIsSupport(botLaner)) {
+                        botLaner.role = SUPPORT_ROLE;
                     }
                 });
 
@@ -313,14 +319,16 @@ function parseRoles(matchEntry) {
             matchEntry.participants.forEach(function(participant) { participant.roleUnclear = true; });
             console.log('Flagging people in game:', matchEntry.matchId, 'team:', teamId, '-', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
         }
+
+        // console.log('after: ', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
     }
 }
 
 function compileData() {
     var start = new Date().getTime();
 
-    var limit = Infinity;
     var limitStart = 0;
+    var limit = Infinity;
     if (process.argv[2] && process.argv[3]) {
         limitStart = process.argv[2];
         limit = process.argv[3];
@@ -340,6 +348,7 @@ function compileData() {
         })
         .then(function fetchMatches(matches) {
             var matches = matches.slice(limitStart, limit);
+            // var matches = [1755132139];
 
             var includeTimelineQuery = querystring.stringify({ includeTimeline: true });
 
