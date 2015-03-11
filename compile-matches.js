@@ -16,6 +16,7 @@ function compileMatches() {
             var desiredMap = 11; // New summoner's rift id
             var desiredMode = 'CLASSIC';
             var desiredType = 'MATCHED_GAME';
+            var desiredQueue = 'RANKED_SOLO_5x5';
 
             var baseRoute = BASE_URL + MATCH_HISTORY_ROUTE;
 
@@ -34,7 +35,7 @@ function compileMatches() {
                     for (var i in matches) {
                         var match = matches[i];
 
-                        if (match.mapId == desiredMap && match.matchMode == desiredMode && match.matchType == desiredType) {
+                        if (match.queueType === desiredQueue && match.mapId === desiredMap && match.matchMode === desiredMode && match.matchType === desiredType) {
                             extractedMatches[match.matchId] = true;
                         }
                     }
