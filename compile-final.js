@@ -229,7 +229,12 @@ function parseRoles(matchEntry) {
 
         // Set initial baseline roles
         team[BOTTOM_LANE].forEach(function(botLaner) {
-            botLaner.role = (botLaner.timeline.role === 'duo_support') ? SUPPORT_ROLE : ADC_ROLE; // Note: defaults to ADC
+            console.log(botLaner.timeline.role);
+            botLaner.role = botLaner.timeline.role === 'duo' ?
+                (checkIsSupport(botLaner) ? SUPPORT_ROLE : ADC_ROLE) :
+                botLaner.timeline.role === 'duo_support' ?
+                    SUPPORT_ROLE :
+                    ADC_ROLE; // Note: defaults to ADC
         });
 
         team[MIDDLE_LANE].forEach(function(midLaner) { midLaner.role = MIDDLE_LANE; });
@@ -348,7 +353,7 @@ function compileData() {
         })
         .then(function fetchMatches(matches) {
             var matches = matches.slice(limitStart, limit);
-            // var matches = [1755132139];
+            // var matches = [1761141257];
 
             var includeTimelineQuery = querystring.stringify({ includeTimeline: true });
 
