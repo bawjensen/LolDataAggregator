@@ -229,7 +229,7 @@ function parseRoles(matchEntry) {
 
         // Set initial baseline roles
         team[BOTTOM_LANE].forEach(function(botLaner) {
-            console.log(botLaner.timeline.role);
+            // console.log(botLaner.timeline.role);
             botLaner.role = botLaner.timeline.role === 'duo' ?
                 (checkIsSupport(botLaner) ? SUPPORT_ROLE : ADC_ROLE) :
                 botLaner.timeline.role === 'duo_support' ?
