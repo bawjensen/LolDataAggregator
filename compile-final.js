@@ -135,8 +135,10 @@ function parseSkillsAndBuys(matchEntry) {
     matchEntry.participants.forEach(function(participant) {
         if (participant.skills)
             participant.skillMaxOrder = parseMaxOrder(participant.skills);
-        else
+        else {
+            matchEntry.hasAfker = true;
             console.log('Match:', matchEntry.matchId, 'participant:', participant.participantId, 'has no skills');
+        }
         participant.buys = groupPurchases(participant.buys);
     });
 }
@@ -370,6 +372,10 @@ function compileData() {
                     }
                     else if (!matchEntry.timeline) {
                         console.log('Ignoring match', matchEntry.matchId, 'as it has no timeline');
+                        return;
+                    }
+                    else if (matchEntry.hasAfker) {
+                        console.log('Ignoring match', matchEntry.matchId, 'as it has an AFKer');
                         return;
                     }
 
