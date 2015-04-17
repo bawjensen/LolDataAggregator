@@ -9,6 +9,11 @@ var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 
 var MATCH_ROUTE = '/api/lol/na/v2.2/match/';
 
+var UNKNOWN_ROLE = 'UNKNOWN';
+
+var NUM_TOTAL_CHAMP_ENTRIES; // Summoner entries
+var NUM_KEPT_CHAMP_ENTRIES;
+
 function convertArrayToObject(runesOrMasteries) {
     var newObj = {};
 
@@ -305,8 +310,8 @@ function parseRoles(matchEntry) {
                     }
 
                     if (!jungler.role) {
-                        console.log('ISSUE:', matchEntry.matchId);
-                        console.log('Unknown:', matchEntry.participantIdentities[jungler.participantId-1].player.summonerName);
+                        console.log('Issue with identifying in match:', matchEntry.matchId);
+                        console.log('Person in question:', matchEntry.participantIdentities[jungler.participantId-1].player.summonerName);
                         issueWithJungler = true;
                     }
                 });
@@ -314,7 +319,7 @@ function parseRoles(matchEntry) {
                 if (!issueWithJungler)
                     fixed = true;
                 else {
-                    console.log(JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
+                    console.log('Jungler issue game:', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
                     team[TOP_LANE].forEach(function(topLaner) {
                         console.log('Top laner:', matchEntry.participantIdentities[topLaner.participantId-1].player.summonerName);
                     });
@@ -323,8 +328,8 @@ function parseRoles(matchEntry) {
         }
 
         if (flagged && !fixed) {
-            matchEntry.participants.forEach(function(participant) { participant.roleUnclear = true; });
-            console.log('Flagging people in game:', matchEntry.matchId, 'team:', teamId, '-', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
+            matchEntry.unclearRoles = true;
+            console.log('Flagging match:', matchEntry.matchId, 'team:', teamId, '-', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
         }
 
         // console.log('after: ', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
@@ -356,6 +361,8 @@ function compileData() {
         .then(function fetchMatches(matches) {
             var matches = matches.slice(limitStart, limit);
             // var matches = [1761141257];
+            NUM_TOTAL_CHAMP_ENTRIES = matches.length * 10;
+            NUM_KEPT_CHAMP_ENTRIES = 0;
 
             var includeTimelineQuery = querystring.stringify({ includeTimeline: true });
 
@@ -367,76 +374,77 @@ function compileData() {
                 },
                 function handleMatch(matchEntry) { // How to handle a match's response data
                     if (!matchEntry) {
-                        console.log('Ignoring match')
-                        return;
+                        console.log('Ignoring match as it returned "falsey"');
                     }
                     else if (!matchEntry.timeline) {
                         console.log('Ignoring match', matchEntry.matchId, 'as it has no timeline');
-                        return;
                     }
-                    else if (matchEntry.hasAfker) {
-                        console.log('Ignoring match', matchEntry.matchId, 'as it has an AFKer');
-                        return;
-                    }
+                    else {
+                        parseSkillsAndBuys(matchEntry);
+                        parseRoles(matchEntry);
 
-                    parseSkillsAndBuys(matchEntry);
-                    parseRoles(matchEntry);
+                        // if (matchEntry.hasAfker || matchEntry.unclearRoles) return;
 
-                    matchEntry.participants.forEach(function handleParticipant(participant, i) {
-                        if (participant.roleUnclear) return; // Ignore all participants that may be unclear in their roles
-                        if (!participant.skills) return; // Ignore champs that haven't skilled anything (likely afk)
+                        matchEntry.participants.forEach(function handleParticipant(participant, i) {
+                            if (!participant.skills) return; // Ignore champs that haven't skilled anything (likely afk)
 
-                        var champId = participant.championId;
+                            var champId = participant.championId;
 
-                        if (participant.participantId != i+1) {
-                            throw new Error('Issue: The participant index (' + i + ') doesn\'t match the id (' + participant.participantId + ')');
-                        }
+                            if (participant.participantId != i+1) {
+                                throw new Error('Issue: The participant index (' + i + ') doesn\'t match the id (' + participant.participantId + ')');
+                            }
 
-                        var masteries = participant.masteries ? convertArrayToObject(participant.masteries) : {};
-                        var masterySummary = participant.masteries ? extractMasterySummary(participant.masteries) : {};
+                            var masteries = participant.masteries ? convertArrayToObject(participant.masteries) : {};
+                            var masterySummary = participant.masteries ? extractMasterySummary(participant.masteries) : {};
 
-                        var runeTree =  {};
-                        if (participant.runes) {
-                            participant.runes.forEach(function(rune) {
-                                var runeType = runeStaticData[rune.runeId].type;
-                                if (!(runeType in runeTree))
-                                    runeTree[runeType] = {};
+                            var runeTree =  {};
+                            if (participant.runes) {
+                                participant.runes.forEach(function(rune) {
+                                    var runeType = runeStaticData[rune.runeId].type;
+                                    if (!(runeType in runeTree))
+                                        runeTree[runeType] = {};
 
-                                runeTree[runeType][rune.runeId] = rune.rank;
+                                    runeTree[runeType][rune.runeId] = rune.rank;
+                                });
+                            }
+                            
+                            if (matchEntry.hasAfker || matchEntry.unclearRoles)
+                                participant.role = UNKNOWN_ROLE;
+
+                            champDataArray.push ({
+                                champId:        participant.championId,
+                                summonerName:   matchEntry.participantIdentities[i].player.summonerName,
+                                winner:         participant.stats.winner,
+                                runes:          runeTree,
+                                masteries:      masteries,
+                                masterySummary: masterySummary,
+                                role:           participant.role,
+                                kills:          participant.stats.kills,
+                                deaths:         participant.stats.deaths,
+                                assists:        participant.stats.assists,
+                                summonerSpells: [
+                                                    participant.spell1Id,
+                                                    participant.spell2Id
+                                                ],
+                                date:           matchEntry.matchCreation,
+                                skillOrder:     participant.skills,
+                                skillMaxOrder:  participant.skillMaxOrder,
+                                buyOrder:       participant.buys,
+                                matchId:        matchEntry.matchId
+                                // finalBuild:     [
+                                //                     participant.stats.item0,
+                                //                     participant.stats.item1,
+                                //                     participant.stats.item2,
+                                //                     participant.stats.item3,
+                                //                     participant.stats.item4,
+                                //                     participant.stats.item5,
+                                //                     participant.stats.item6
+                                //                 ],
                             });
-                        }
 
-                        champDataArray.push ({
-                            champId:        participant.championId,
-                            summonerName:   matchEntry.participantIdentities[i].player.summonerName,
-                            winner:         participant.stats.winner,
-                            runes:          runeTree,
-                            masteries:      masteries,
-                            masterySummary: masterySummary,
-                            role:           participant.role,
-                            kills:          participant.stats.kills,
-                            deaths:         participant.stats.deaths,
-                            assists:        participant.stats.assists,
-                            summonerSpells: [
-                                                participant.spell1Id,
-                                                participant.spell2Id
-                                            ],
-                            date:           matchEntry.matchCreation,
-                            skillOrder:     participant.skills,
-                            skillMaxOrder:  participant.skillMaxOrder,
-                            buyOrder:       participant.buys,
-                            matchId:        matchEntry.matchId
-                            // finalBuild:     [
-                            //                     participant.stats.item0,
-                            //                     participant.stats.item1,
-                            //                     participant.stats.item2,
-                            //                     participant.stats.item3,
-                            //                     participant.stats.item4,
-                            //                     participant.stats.item5,
-                            //                     participant.stats.item6
-                            //                 ],
+                            ++NUM_KEPT_CHAMP_ENTRIES;
                         });
-                    });
+                    }
                 })
                 .then(function() {
                     return champDataArray; // Funnel data into the save step
@@ -444,6 +452,7 @@ function compileData() {
         })
         .then(function saveData(champDataArray) {
             console.log(((new Date().getTime() - start) / 1000 / 60) + ' minutes');
+            console.log('Kept', NUM_KEPT_CHAMP_ENTRIES, 'out of', NUM_TOTAL_CHAMP_ENTRIES, 'champ entries');
 
             promise.save('data-compiled/data.json', JSON.stringify(champDataArray));
         })

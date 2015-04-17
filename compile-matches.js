@@ -7,7 +7,7 @@ var API_KEY     = process.env.RIOT_KEY;
 var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
 var MATCH_TYPE_QUERY = querystring.stringify({ rankedQueues: 'RANKED_SOLO_5x5' });
 
-var MATCH_HISTORY_ROUTE = '/api/lol/na/v2.2/matchhistory/'
+var MATCH_HISTORY_ROUTE = '/api/lol/na/v2.2/matchhistory/';
 
 function compileMatches() {
     promise.readJson('data-compiled/players.json')

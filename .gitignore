@@ -2,3 +2,4 @@ db/
 node_modules/
 dragontail/
 update.log
+data-compiled/
