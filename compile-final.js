@@ -12,7 +12,7 @@ var MATCH_ROUTE = '/api/lol/na/v2.2/match/';
 var UNKNOWN_ROLE = 'UNKNOWN';
 
 var NUM_TOTAL_CHAMP_ENTRIES; // Summoner entries
-var NUM_KEPT_CHAMP_ENTRIES;
+var NUM_IDENTIFIED_ENTRIES;
 
 function convertArrayToObject(runesOrMasteries) {
     var newObj = {};
@@ -362,7 +362,7 @@ function compileData() {
             var matches = matches.slice(limitStart, limit);
             // var matches = [1761141257];
             NUM_TOTAL_CHAMP_ENTRIES = matches.length * 10;
-            NUM_KEPT_CHAMP_ENTRIES = 0;
+            NUM_IDENTIFIED_ENTRIES = 0;
 
             var includeTimelineQuery = querystring.stringify({ includeTimeline: true });
 
@@ -410,6 +410,8 @@ function compileData() {
                             
                             if (matchEntry.hasAfker || matchEntry.unclearRoles)
                                 participant.role = UNKNOWN_ROLE;
+                            else
+                                ++NUM_IDENTIFIED_ENTRIES;
 
                             champDataArray.push ({
                                 champId:        participant.championId,
@@ -441,8 +443,6 @@ function compileData() {
                                 //                     participant.stats.item6
                                 //                 ],
                             });
-
-                            ++NUM_KEPT_CHAMP_ENTRIES;
                         });
                     }
                 })
@@ -452,7 +452,7 @@ function compileData() {
         })
         .then(function saveData(champDataArray) {
             console.log(((new Date().getTime() - start) / 1000 / 60) + ' minutes');
-            console.log('Kept', NUM_KEPT_CHAMP_ENTRIES, 'out of', NUM_TOTAL_CHAMP_ENTRIES, 'champ entries');
+            console.log('Identified ', NUM_IDENTIFIED_ENTRIES, 'out of', NUM_TOTAL_CHAMP_ENTRIES, 'champ entries');
 
             promise.save('data-compiled/data.json', JSON.stringify(champDataArray));
         })
