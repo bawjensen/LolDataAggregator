@@ -20,7 +20,7 @@ function compileMatches() {
 
             return promise.groupedGet(players, 50,
                 function mapMatch(id) { // How to map a match to a promise request
-                    return promise.persistentGet(baseRoute + id + '?' + KEY_QUERY);
+                    return promise.persistentGet(baseRoute + id + '?' + KEY_QUERY + '&' + MATCH_TYPE_QUERY);
                 },
                 function handleMatch(matchHistoryEntry) { // How to handle a match's response data
                     if (!matchHistoryEntry) {

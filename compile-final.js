@@ -452,7 +452,7 @@ function compileData() {
         })
         .then(function saveData(champDataArray) {
             console.log(((new Date().getTime() - start) / 1000 / 60) + ' minutes');
-            console.log('Identified', (NUM_IDENTIFIED_ENTRIES / NUM_TOTAL_CHAMP_ENTRIES) * 100 + '%', '(' + NUM_IDENTIFIED_ENTRIES, 'out of', NUM_TOTAL_CHAMP_ENTRIES + ')');
+            console.log('Identified', ((NUM_IDENTIFIED_ENTRIES / NUM_TOTAL_CHAMP_ENTRIES) * 100).toFixed(2) + '%', '(' + NUM_IDENTIFIED_ENTRIES, 'out of', NUM_TOTAL_CHAMP_ENTRIES + ')');
 
             promise.save('data-compiled/data.json', JSON.stringify(champDataArray));
         })
