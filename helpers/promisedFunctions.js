@@ -76,7 +76,7 @@ function persistentCallback(url, resolve, reject, err, resp, body) {
         }, 500);
     }
     else if (resp.statusCode === 404) {
-        resolve('null'); // Return nothing
+        resolve(null); // Return nothing
     }
     else if (resp.statusCode !== 200) {
         reject(Error('Resp status code not 200: ' + resp.statusCode + '(' + url + ')'));
@@ -85,14 +85,18 @@ function persistentCallback(url, resolve, reject, err, resp, body) {
         resolve(body);
     }
 }
-function persistentPromiseGet(url) {
+function promisePersistentGet(url, identifier) {
+    // console.log('url:', url);
     return new Promise(function get(resolve, reject) {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
         })
         .then(JSON.parse)
+        .then(function returnWithIdentifier(data) {
+            return data ? (identifier ? { data: data, id: identifier } : data) : null;
+        })
         .catch(function(err) {
             if (err.code === 'ECONNRESET')
-                persistentPromiseGet(url);
+                promisePersistentGet(url, identifier);
             else
                 throw err;
         });
@@ -110,7 +114,7 @@ function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
         return chainSoFar.then(function() {
             return Promise.all(matchesGroup.map(promiseMapper))
                 .then(function assignData(matchesArray) {
-                    matchesArray.forEach(matchHandler); // This is where the magic happens - data extracted *outside* of promises
+                    matchesArray.forEach(matchHandler); // This is where the handler magic happens - data extracted *outside* of promises
                     console.log('Finished batch ending with', (i + 1) * groupSize, 'sending out the next set of requests');
                 })
             });
@@ -173,7 +177,7 @@ module.exports = {
     getJson:            promiseJsonGet,
     read:               promiseReadFile,
     readJson:           promiseReadJsonFile,
-    persistentGet:      persistentPromiseGet,
+    persistentGet:      promisePersistentGet,
     getPipe:            promisePipeFile,
     exec:               promiseExec,
     wait:               promiseWait,

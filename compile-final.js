@@ -1,18 +1,12 @@
 var fs          = require('fs'),
+    globals     = require('./helpers/globalConstants'),
+    Heap        = require('heap'),
     request     = require('request'),
     promise     = require('./helpers/promisedFunctions'),
     querystring = require('querystring');
 
-var BASE_URL    = 'https://na.api.pvp.net';
-var API_KEY     = process.env.RIOT_KEY;
-var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
-
-var MATCH_ROUTE = '/api/lol/na/v2.2/match/';
-
-var UNKNOWN_ROLE = 'UNKNOWN';
-
-var NUM_TOTAL_CHAMP_ENTRIES; // Summoner entries
-var NUM_IDENTIFIED_ENTRIES;
+// var NUM_TOTAL_CHAMP_ENTRIES; // Summoner entries
+// var NUM_IDENTIFIED_ENTRIES;
 
 function convertArrayToObject(runesOrMasteries) {
     var newObj = {};
@@ -155,21 +149,9 @@ var MIDDLE_LANE = 'middle',
     ADC_ROLE = 'adc',
     SUPPORT_ROLE = 'support';
 
-function checkIsTopLaner(participant) {
-
-}
-
 var SMITE_ID = 11;
 function checkIsJungler(participant) {
     return (participant.spell1Id === SMITE_ID || participant.spell2Id === SMITE_ID);
-}
-
-function checkIsMidLaner(participant) {
-
-}
-
-function checkIsAdc(participant) {
-
 }
 
 var SUPPORT_ROLE_START_ITEMS = [
@@ -190,6 +172,10 @@ function checkIsSupport(participant) {
         console.log('Failed finding buys to classify', participant.participantId);
 
     return flag;
+}
+
+function compareHeapElements(a, b) {
+    return a.date - b.date;
 }
 
 function parseRoles(matchEntry) {
@@ -220,7 +206,7 @@ function parseRoles(matchEntry) {
 
     var campedLanes = [TOP_LANE, MIDDLE_LANE, BOTTOM_LANE]; // Lanes often camped by jungler, might cause misclassification
 
-    for (var teamId in teams) {
+    Object.keys(teams).forEach(function(teamId) {
         var team = teams[teamId];
 
         // console.log('before:', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
@@ -333,12 +319,10 @@ function parseRoles(matchEntry) {
         }
 
         // console.log('after: ', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
-    }
+    });
 }
 
 function compileData() {
-    var start = new Date().getTime();
-
     var limitStart = 0;
     var limit = Infinity;
     if (process.argv[2] && process.argv[3]) {
@@ -351,108 +335,144 @@ function compileData() {
         console.log('Limiting to ' + limit + ' matches');
     }
 
-    var runeStaticData;
+    var runeStaticData; // Somewhat-global variable
 
     promise.readJson('data-compiled/runes.json')
         .then(function loadDynamic(runeStatic) {
             runeStaticData = runeStatic;
             return promise.readJson('data-compiled/matches.json');
         })
-        .then(function fetchMatches(matches) {
-            var matches = matches.slice(limitStart, limit);
-            // var matches = [1761141257];
-            NUM_TOTAL_CHAMP_ENTRIES = matches.length * 10;
-            NUM_IDENTIFIED_ENTRIES = 0;
+        .then(function fetchMatches(allRegionMatches) {
+            var champDataObj = {};
 
-            var includeTimelineQuery = querystring.stringify({ includeTimeline: true });
+            return Promise.all(
+                Object.keys(allRegionMatches).map(function(regionStr) {
+                    var matches = allRegionMatches[regionStr].slice(limitStart, limit);
 
-            var champDataArray = [];
+                    // var matches = [1761141257];
+                    // NUM_TOTAL_CHAMP_ENTRIES = matches.length * 10;
+                    // NUM_IDENTIFIED_ENTRIES = 0;
 
-            return promise.groupedGet(matches, 50,
-                function mapMatch(matchId) { // How to map a match to a promise request
-                    return promise.persistentGet(BASE_URL + MATCH_ROUTE + matchId + '?' + includeTimelineQuery + '&' + KEY_QUERY);
-                },
-                function handleMatch(matchEntry) { // How to handle a match's response data
-                    if (!matchEntry) {
-                        console.log('Ignoring match as it returned "falsey"');
-                    }
-                    else if (!matchEntry.timeline) {
-                        console.log('Ignoring match', matchEntry.matchId, 'as it has no timeline');
-                    }
-                    else {
-                        parseSkillsAndBuys(matchEntry);
-                        parseRoles(matchEntry);
+                    return promise.groupedGet(matches, 50,
+                        function mapMatch(matchId) { // How to map a match's id to a promise request
+                            return promise.persistentGet(globals.URL_PREFIX + regionStr + globals.BASE_URL + regionStr + globals.MATCH_ROUTE + matchId + '?' + globals.KEY_TIMELINE_QUERY, regionStr);
+                        },
+                        function handleMatch(obj) { // How to handle a match's response data
+                            var matchEntry = obj.data;
+                            var regionStr = obj.id;
 
-                        // if (matchEntry.hasAfker || matchEntry.unclearRoles) return;
-
-                        matchEntry.participants.forEach(function handleParticipant(participant, i) {
-                            if (!participant.skills) return; // Ignore champs that haven't skilled anything (likely afk)
-
-                            var champId = participant.championId;
-
-                            if (participant.participantId != i+1) {
-                                throw new Error('Issue: The participant index (' + i + ') doesn\'t match the id (' + participant.participantId + ')');
+                            if (!matchEntry) {
+                                console.log('Ignoring match as it returned "falsey"');
                             }
+                            else if (!matchEntry.timeline) {
+                                console.log('Ignoring match', matchEntry.matchId, 'as it has no timeline');
+                            }
+                            else {
+                                parseSkillsAndBuys(matchEntry);
+                                parseRoles(matchEntry);
 
-                            var masteries = participant.masteries ? convertArrayToObject(participant.masteries) : {};
-                            var masterySummary = participant.masteries ? extractMasterySummary(participant.masteries) : {};
+                                // if (matchEntry.hasAfker || matchEntry.unclearRoles) return;
 
-                            var runeTree =  {};
-                            if (participant.runes) {
-                                participant.runes.forEach(function(rune) {
-                                    var runeType = runeStaticData[rune.runeId].type;
-                                    if (!(runeType in runeTree))
-                                        runeTree[runeType] = {};
+                                matchEntry.participants.forEach(function handleParticipant(participant, i) {
+                                    if (!participant.skills) return; // Ignore champs that haven't skilled anything (likely afk)
+                                    
+                                    if (matchEntry.hasAfker || matchEntry.unclearRoles)
+                                        participant.role = globals.UNKNOWN_ROLE;
 
-                                    runeTree[runeType][rune.runeId] = rune.rank;
+                                    var sizeReached = false;
+
+                                    if (!(participant.championId in champDataObj)) {
+                                        champDataObj[participant.championId] = {};
+                                        champDataObj[participant.championId][participant.role] = new Heap(compareHeapElements);
+                                    }
+                                    else if (!(participant.role in champDataObj[participant.championId])) {
+                                        champDataObj[participant.championId][participant.role] = new Heap(compareHeapElements);
+                                    }
+                                    else if (champDataObj[participant.championId][participant.role].size() >= globals.NUM_PER_CHAMP_ROLE) {
+                                        sizeReached = true;
+                                    }
+
+                                    var champId = participant.championId;
+
+                                    if (participant.participantId != i+1) {
+                                        throw new Error('Issue: The participant index (' + i + ') doesn\'t match the id (' + participant.participantId + ')');
+                                    }
+
+                                    var masteries = participant.masteries ? convertArrayToObject(participant.masteries) : {};
+                                    var masterySummary = participant.masteries ? extractMasterySummary(participant.masteries) : {};
+
+                                    var runeTree =  {};
+                                    if (participant.runes) {
+                                        participant.runes.forEach(function(rune) {
+                                            var runeType = runeStaticData[rune.runeId].type;
+                                            if (!(runeType in runeTree))
+                                                runeTree[runeType] = {};
+
+                                            runeTree[runeType][rune.runeId] = rune.rank;
+                                        });
+                                    }
+                                    // else
+                                        // ++NUM_IDENTIFIED_ENTRIES;
+
+                                    var funcName;
+                                    if (sizeReached)
+                                        funcName = 'pushpop';
+                                    else
+                                        funcName = 'push';
+
+                                    champDataObj[participant.championId][participant.role][funcName]({
+                                        champId:        participant.championId,
+                                        summonerName:   matchEntry.participantIdentities[i].player.summonerName,
+                                        winner:         participant.stats.winner,
+                                        runes:          runeTree,
+                                        masteries:      masteries,
+                                        masterySummary: masterySummary,
+                                        role:           participant.role,
+                                        kills:          participant.stats.kills,
+                                        deaths:         participant.stats.deaths,
+                                        assists:        participant.stats.assists,
+                                        summonerSpells: [
+                                                            participant.spell1Id,
+                                                            participant.spell2Id
+                                                        ],
+                                        date:           matchEntry.matchCreation,
+                                        skillOrder:     participant.skills,
+                                        skillMaxOrder:  participant.skillMaxOrder,
+                                        buyOrder:       participant.buys,
+                                        matchId:        matchEntry.matchId,
+                                        region:         regionStr
+                                        // finalBuild:     [
+                                        //                     participant.stats.item0,
+                                        //                     participant.stats.item1,
+                                        //                     participant.stats.item2,
+                                        //                     participant.stats.item3,
+                                        //                     participant.stats.item4,
+                                        //                     participant.stats.item5,
+                                        //                     participant.stats.item6
+                                        //                 ],
+                                    });
                                 });
                             }
-                            
-                            if (matchEntry.hasAfker || matchEntry.unclearRoles)
-                                participant.role = UNKNOWN_ROLE;
-                            else
-                                ++NUM_IDENTIFIED_ENTRIES;
-
-                            champDataArray.push ({
-                                champId:        participant.championId,
-                                summonerName:   matchEntry.participantIdentities[i].player.summonerName,
-                                winner:         participant.stats.winner,
-                                runes:          runeTree,
-                                masteries:      masteries,
-                                masterySummary: masterySummary,
-                                role:           participant.role,
-                                kills:          participant.stats.kills,
-                                deaths:         participant.stats.deaths,
-                                assists:        participant.stats.assists,
-                                summonerSpells: [
-                                                    participant.spell1Id,
-                                                    participant.spell2Id
-                                                ],
-                                date:           matchEntry.matchCreation,
-                                skillOrder:     participant.skills,
-                                skillMaxOrder:  participant.skillMaxOrder,
-                                buyOrder:       participant.buys,
-                                matchId:        matchEntry.matchId
-                                // finalBuild:     [
-                                //                     participant.stats.item0,
-                                //                     participant.stats.item1,
-                                //                     participant.stats.item2,
-                                //                     participant.stats.item3,
-                                //                     participant.stats.item4,
-                                //                     participant.stats.item5,
-                                //                     participant.stats.item6
-                                //                 ],
-                            });
                         });
-                    }
                 })
-                .then(function() {
-                    return champDataArray; // Funnel data into the save step
-                });
+            )
+            .then(function constructObj() {
+                var dataArray = [];
+
+                for (var champId in champDataObj) {
+                    var champRoleObj = champDataObj[champId];
+
+                    for (var champRole in champRoleObj) {
+                        // console.log(champRoleObj[champRole].toArray());
+                        dataArray = dataArray.concat.apply(dataArray, champRoleObj[champRole].toArray());
+                    }
+                }
+
+                return dataArray; // Funnel data into the save step - avoids global variables
+            });
         })
         .then(function saveData(champDataArray) {
-            console.log(((new Date().getTime() - start) / 1000 / 60) + ' minutes');
-            console.log('Identified', ((NUM_IDENTIFIED_ENTRIES / NUM_TOTAL_CHAMP_ENTRIES) * 100).toFixed(2) + '%', '(' + NUM_IDENTIFIED_ENTRIES, 'out of', NUM_TOTAL_CHAMP_ENTRIES + ')');
+            // console.log('Identified', ((NUM_IDENTIFIED_ENTRIES / NUM_TOTAL_CHAMP_ENTRIES) * 100).toFixed(2) + '%', '(' + NUM_IDENTIFIED_ENTRIES, 'out of', NUM_TOTAL_CHAMP_ENTRIES + ')');
 
             promise.save('data-compiled/data.json', JSON.stringify(champDataArray));
         })

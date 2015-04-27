@@ -1,16 +1,20 @@
-var promise         = require('./helpers/promisedFunctions'),
-    querystring     = require('querystring');
-
-var BASE_URL    = 'https://na.api.pvp.net';
-var API_KEY     = process.env.RIOT_KEY;
-
-var CHALLENGER_ROUTE = '/api/lol/na/v2.5/league/challenger';
-
-var KEY_QUERY = querystring.stringify({ api_key: API_KEY });
+var globals     = require('./helpers/globalConstants'),
+    promise     = require('./helpers/promisedFunctions'),
+    querystring = require('querystring');
 
 function compilePlayers() {
-    promise.persistentGet(BASE_URL + CHALLENGER_ROUTE + '?' + querystring.stringify({ type: 'RANKED_SOLO_5x5' }) + '&' + KEY_QUERY)
-        .then(function parseOut(LeagueDto) {
+    Promise.all(
+        globals.REGIONS.map(function(regionStr) {
+            return promise.persistentGet(globals.URL_PREFIX + regionStr + globals.BASE_URL + regionStr + globals.CHALLENGER_ROUTE + '?' + globals.KEY_RANKED_TYPE_QUERY, regionStr);
+        })
+    )
+    .then(function parseOutArray(LeagueDtoArray) {
+        var data = {};
+
+        LeagueDtoArray.forEach(function parseOut(obj) {
+            var LeagueDto = obj.data;
+            var regionStr = obj.id;
+
             var players = {};
             var entries = LeagueDto.entries;
 
@@ -20,15 +24,22 @@ function compilePlayers() {
                 players[entry.playerOrTeamId] = true;
             }
 
-            return Object.keys(players);
-        })
-        .then(function saveData(players) {
-            console.log('Got ' + players.length + ' players');
-            promise.save('data-compiled/players.json', JSON.stringify(players));
-        })
-        .catch(function(err) {
-            console.log(err.stack);
+            // return Object.keys(players);
+            data[regionStr] = Object.keys(players);
         });
+
+        return data;
+    })
+    .then(function saveData(allPlayers) {
+        var numPlayers = Object.keys(allPlayers).reduce(function countUpPlayers(prevValue, regionStr) { return prevValue + allPlayers[regionStr].length; }, 0);
+
+        console.log('Got ' + numPlayers + ' players');
+
+        promise.save('data-compiled/players.json', JSON.stringify(allPlayers));
+    })
+    .catch(function(err) {
+        console.log(err.stack);
+    });
 }
 
 compilePlayers();

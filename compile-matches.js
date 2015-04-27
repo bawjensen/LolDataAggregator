@@ -1,51 +1,55 @@
-var request     = require('request'),
+var globals     = require('./helpers/globalConstants'),
+    request     = require('request'),
     promise     = require('./helpers/promisedFunctions'),
     querystring = require('querystring');
 
-var BASE_URL    = 'https://na.api.pvp.net';
-var API_KEY     = process.env.RIOT_KEY;
-var KEY_QUERY   = querystring.stringify({ api_key: API_KEY });
-var MATCH_TYPE_QUERY = querystring.stringify({ rankedQueues: 'RANKED_SOLO_5x5' });
-
-var MATCH_HISTORY_ROUTE = '/api/lol/na/v2.2/matchhistory/';
-
 function compileMatches() {
     promise.readJson('data-compiled/players.json')
-        .then(function fetchMatches(players) {
-            var extractedMatches = {};
+        .then(function fetchMatches(regionPlayerObj) {
+            return Promise.all(
+                Object.keys(regionPlayerObj).map(function mapRegionToArray(regionStr) {
+                    var extractedMatches = {};
 
-            var desiredMap = 11; // New summoner's rift id
+                    return promise.groupedGet(regionPlayerObj[regionStr], 50,
+                        function mapMatch(id) { // How to map a match to a promise request
+                            return promise.persistentGet(globals.URL_PREFIX + regionStr + globals.BASE_URL + regionStr + globals.MATCH_HISTORY_ROUTE + id + '?' + globals.KEY_RANKED_QUEUE_QUERY, regionStr);
+                        },
+                        function handleMatch(obj) { // How to handle a match's response data
+                            var matchHistoryEntry = obj.data;
+                            var regionStr = obj.id;
 
-            var baseRoute = BASE_URL + MATCH_HISTORY_ROUTE;
+                            if (!matchHistoryEntry) {
+                                console.log('Match didn\'t exist');
+                                return;
+                            }
 
-            return promise.groupedGet(players, 50,
-                function mapMatch(id) { // How to map a match to a promise request
-                    return promise.persistentGet(baseRoute + id + '?' + KEY_QUERY + '&' + MATCH_TYPE_QUERY);
-                },
-                function handleMatch(matchHistoryEntry) { // How to handle a match's response data
-                    if (!matchHistoryEntry) {
-                        console.log('Match didn\'t exist');
-                        return;
+                            var matches = matchHistoryEntry.matches;
+
+                            for (var i in matches) {
+                                extractedMatches[matches[i].matchId] = true;
+                            }
+                        })
+                        .then(function sendDataAlong() {
+                            return { data: Object.keys(extractedMatches), regionStr: regionStr };
+                        });
                     }
+                )
+            )
+            .then(function reconstructObject(matchesArrayArray) {
+                var returnObj = {};
 
-                    var matches = matchHistoryEntry.matches;
-
-                    for (var i in matches) {
-                        var match = matches[i];
-
-                        if (match.mapId === desiredMap) {
-                            extractedMatches[match.matchId] = true;
-                        }
-                    }
-
-                })
-                .then(function() {
-                    return Object.keys(extractedMatches);
+                matchesArrayArray.forEach(function(matchesArrayObj) {
+                    returnObj[matchesArrayObj.regionStr] = matchesArrayObj.data;
                 });
+
+                return returnObj;
+            });
         })
-        .then(function saveMatches(matches) {
-            console.log('Got ' + matches.length + ' matches');
-            promise.save('data-compiled/matches.json', JSON.stringify(matches));
+        .then(function saveMatches(allMatches) {
+            console.log('Number of matches:');
+            var numMatches = Object.keys(allMatches).forEach(function countUpPlayers(regionStr) { console.log(regionStr + ':', allMatches[regionStr].length); });
+
+            promise.save('data-compiled/matches.json', JSON.stringify(allMatches));
         })
         .catch(function(err) {
             console.log(err.stack);

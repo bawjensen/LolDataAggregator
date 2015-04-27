@@ -1,10 +1,7 @@
 var argv        = require('optimist').argv,
+    globals     = require('./helpers/globalConstants'),
     MongoClient = require('mongodb').MongoClient,
     promise     = require('./helpers/promisedFunctions');
-
-var MONGO_URL = process.env.MONGO_URL_PREFIX + (argv.db_ip || 'localhost:27017') + process.env.MONGO_URL_DB;
-
-var NUM_TO_STORE = 50;
 
 function sendDataToDatabase() {
     var newChampsData;
@@ -22,9 +19,11 @@ function sendDataToDatabase() {
                 });
         })
         .then(function connectToDatabase() {
+            var mongoUrl = process.env.MONGO_URL_PREFIX + (argv.db_ip || 'localhost:27017') + process.env.MONGO_URL_DB;
+
             return new Promise(function(resolve, reject) {
-                console.log('Connecting to', MONGO_URL);
-                MongoClient.connect(MONGO_URL, function callback(err, db) {
+                console.log('Connecting to', mongoUrl);
+                MongoClient.connect(mongoUrl, function callback(err, db) {
                     if (err) {
                         reject(Error(err));
                     }
@@ -37,47 +36,48 @@ function sendDataToDatabase() {
         })
         .then(function determineShortedChampions() {
             return Promise.all(
-                Object.keys(staticChampsData).map(function(key) {
-                    var entry = staticChampsData[key];
+                Object.keys(staticChampsData).map(function(champId) {
+                    var entry = staticChampsData[champId];
 
                     var newChampData = newChampsData.filter(function(dataEntry) { return dataEntry.champId === entry.id; });
                     var numNew = newChampData.length;
 
                     console.log(entry.name, 'has', numNew, 'new matches');
 
-                    var promiseBuffer;
+                    // var promiseBuffer;
 
-                    if (numNew >= NUM_TO_STORE) {
-                        console.log('Cutting down to', NUM_TO_STORE);
-                        newChampData.sort(function(a, b) { return a.date > b.date ? -1 : a.date < b.date ? 1 : 0; });
-                        promiseBuffer = Promise.resolve(newChampData.slice(0, NUM_TO_STORE));
-                    }
-                    else {
-                        console.log('Fetching more to make', NUM_TO_STORE);
-                        var numToFetch = NUM_TO_STORE - numNew;
+                    // if (numNew >= globals.NUM_PER_CHAMP_ROLE) {
+                    //     // Grab the most recent
+                    //     newChampData.sort(function(a, b) { return a.date > b.date ? -1 : a.date < b.date ? 1 : 0; });
+                    //     promiseBuffer = Promise.resolve(newChampData.slice(0, globals.NUM_PER_CHAMP_ROLE));
+                    // }
+                    // else {
+                    //     console.log('Fetching more to make', globals.NUM_PER_CHAMP_ROLE);
+                    //     var numToFetch = globals.NUM_PER_CHAMP_ROLE - numNew;
 
-                        var earliestDate = Infinity;
+                    //     var earliestDate = Infinity;
 
-                        newChampData.forEach(function(entry) {
-                            earliestDate = entry.date < earliestDate ? entry.date : earliestDate;
-                        });
+                    //     newChampData.forEach(function(entry) {
+                    //         earliestDate = entry.date < earliestDate ? entry.date : earliestDate;
+                    //     });
 
-                        // console.log(entry.name, 'latest old game:', earliestDate);
+                    //     // console.log(entry.name, 'latest old game:', earliestDate);
 
-                        promiseBuffer = new Promise(function(resolve, reject) {
-                            mongoDb.collection('champData').find({ champId: entry.id, date: { $lt: earliestDate } }).sort({ date: -1 }).limit(numToFetch).toArray(function(err, oldGames) {
-                                console.log('Got', oldGames.length, 'old games for', entry.name, 'vs', newChampData.length, 'new games');
-                                newChampData.push.apply(newChampData, oldGames);
-                                resolve(newChampData);
-                            });
-                        });
-                    }
+                    //     promiseBuffer = new Promise(function(resolve, reject) {
+                    //         mongoDb.collection('champData').find({ champId: entry.id, date: { $lt: earliestDate } }).sort({ date: -1 }).limit(numToFetch).toArray(function(err, oldGames) {
+                    //             console.log('Got', oldGames.length, 'old games for', entry.name, 'vs', newChampData.length, 'new games');
+                    //             newChampData.push.apply(newChampData, oldGames);
+                    //             resolve(newChampData);
+                    //         });
+                    //     });
+                    // }
 
-                    return promiseBuffer;
+                    return newChampData;
                 })
             )
             .then(function returnData(allChampGames) {
                 var merged = [];
+                // Flatten the array of arrays
                 return merged.concat.apply(merged, allChampGames);
             });
         })
@@ -93,6 +93,7 @@ function sendDataToDatabase() {
                     mongoDb.close();
                 })
                 .catch(function closeDBAnyway(err) {
+                    console.log('Error, closing db anyway');
                     mongoDb.close();
                     throw err;
                 });
