@@ -5,49 +5,35 @@ var globals     = require('./helpers/globalConstants'),
 
 function compileMatches() {
     promise.readJson('data-compiled/players.json')
-        .then(function fetchMatches(regionPlayerObj) {
-            return Promise.all(
-                Object.keys(regionPlayerObj).map(function mapRegionToArray(regionStr) {
-                    var extractedMatches = {};
+        .then(function fetchMatches(allPlayers) {
+            var extractedMatches = {};
 
-                    return promise.groupedGet(regionPlayerObj[regionStr], 50,
-                        function mapMatch(id) { // How to map a match to a promise request
-                            return promise.persistentGet(globals.URL_PREFIX + regionStr + globals.BASE_URL + regionStr + globals.MATCH_HISTORY_ROUTE + id + '?' + globals.KEY_RANKED_QUEUE_QUERY, regionStr);
-                        },
-                        function handleMatch(obj) { // How to handle a match's response data
-                            var matchHistoryEntry = obj.data;
-                            var regionStr = obj.id;
-
-                            if (!matchHistoryEntry) {
-                                console.log('Match didn\'t exist');
-                                return;
-                            }
-
-                            var matches = matchHistoryEntry.matches;
-
-                            for (var i in matches) {
-                                extractedMatches[matches[i].matchId] = true;
-                            }
-                        })
-                        .then(function sendDataAlong() {
-                            return { data: Object.keys(extractedMatches), regionStr: regionStr };
-                        });
+            return promise.groupedGet(allPlayers, 50,
+                function mapMatch(playerTuple) { // How to map a match to a promise request
+                    return promise.persistentGet(globals.URL_PREFIX + playerTuple[1] + globals.BASE_URL + playerTuple[1] + globals.MATCH_HISTORY_ROUTE + playerTuple[0] + '?' + globals.KEY_RANKED_QUEUE_QUERY);
+                },
+                function handleMatch(matchHistoryEntry) { // How to handle a match's response data
+                    if (!matchHistoryEntry) {
+                        console.log('Match didn\'t exist');
+                        return;
                     }
-                )
-            )
-            .then(function reconstructObject(matchesArrayArray) {
-                var returnObj = {};
 
-                matchesArrayArray.forEach(function(matchesArrayObj) {
-                    returnObj[matchesArrayObj.regionStr] = matchesArrayObj.data;
+                    matchHistoryEntry.matches.forEach(function(match) {
+                        extractedMatches[match.matchId] = match.region.toLowerCase();
+                    })
+                })
+                .then(function sendDataAlong() {
+                    var dataArray = [];
+
+                    for (var key in extractedMatches) {
+                        dataArray.push([key, extractedMatches[key]]);
+                    }
+
+                    return dataArray;
                 });
-
-                return returnObj;
-            });
         })
         .then(function saveMatches(allMatches) {
-            console.log('Number of matches:');
-            var numMatches = Object.keys(allMatches).forEach(function countUpPlayers(regionStr) { console.log(regionStr + ':', allMatches[regionStr].length); });
+            console.log('Number of matches:', allMatches.length);
 
             promise.save('data-compiled/matches.json', JSON.stringify(allMatches));
         })

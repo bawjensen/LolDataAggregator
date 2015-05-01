@@ -69,14 +69,15 @@ function persistentCallback(url, resolve, reject, err, resp, body) {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
         }, parseInt(resp.headers['retry-after']));
     }
-    else if (resp.statusCode === 503 || resp.statusCode === 504) {
+    else if (resp.statusCode === 503 || resp.statusCode === 500 || resp.statusCode === 504) {
         console.log('Got', resp.statusCode, 'code, retrying in 0.5 sec');
         setTimeout(function() {
             request.get(url, persistentCallback.bind(null, url, resolve, reject));
         }, 500);
     }
     else if (resp.statusCode === 404) {
-        resolve(null); // Return nothing
+        reject(Error('Resp code was 404: ' + url));
+        // resolve(null); // Return nothing
     }
     else if (resp.statusCode !== 200) {
         reject(Error('Resp status code not 200: ' + resp.statusCode + '(' + url + ')'));
@@ -102,6 +103,25 @@ function promisePersistentGet(url, identifier) {
         });
 }
 
+// function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
+//     var listSize = list.length;
+
+//     var groupedList = [];
+//     for (var i = 0; i < list.length; i += groupSize) {
+//         groupedList.push(list.slice(i, i+groupSize));
+//     }
+
+//     return groupedList.reduce(function chainPromiseAlls(chainSoFar, matchesGroup, i) {
+//         return chainSoFar.then(function() {
+//             return Promise.all(matchesGroup.map(promiseMapper))
+//                 .then(function assignData(matchesArray) {
+//                     matchesArray.forEach(matchHandler); // This is where the handler magic happens - data extracted *outside* of promises
+//                     console.log('Finished batch ending with', (i + 1) * groupSize, 'sending out the next set of requests');
+//                 })
+//             });
+//         }, Promise.resolve());
+// }
+
 function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
     var listSize = list.length;
 
@@ -120,6 +140,7 @@ function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
             });
         }, Promise.resolve());
 }
+
 
 function promiseExec(command, options) {
     return new Promise(function execute(resolve, reject) {

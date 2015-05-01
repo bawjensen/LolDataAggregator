@@ -16,7 +16,8 @@ module.exports = {
         'br',
         'tr',
         'ru',
-        'oce'
+        'oce',
+        'kr'
     ],
 
     CHALLENGER_ROUTE: '/v2.5/league/challenger',
