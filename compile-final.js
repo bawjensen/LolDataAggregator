@@ -355,7 +355,7 @@ function compileData() {
             // NUM_TOTAL_CHAMP_ENTRIES = matches.length * 10;
             // NUM_IDENTIFIED_ENTRIES = 0;
 
-            return promise.groupedGet(matches, 200,
+            return promise.rateLimitedGet(matches, 200,
                 function mapMatch(matchTuple) { // How to map a match's id to a promise request
                     return promise.persistentGet(globals.URL_PREFIX + matchTuple[1] + globals.BASE_URL + matchTuple[1] + globals.MATCH_ROUTE + matchTuple[0] + '?' + globals.KEY_TIMELINE_QUERY, matchTuple[1]);
                 },

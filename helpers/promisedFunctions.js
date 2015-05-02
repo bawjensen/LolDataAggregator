@@ -103,25 +103,6 @@ function promisePersistentGet(url, identifier) {
         });
 }
 
-// function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
-//     var listSize = list.length;
-
-//     var groupedList = [];
-//     for (var i = 0; i < list.length; i += groupSize) {
-//         groupedList.push(list.slice(i, i+groupSize));
-//     }
-
-//     return groupedList.reduce(function chainPromiseAlls(chainSoFar, matchesGroup, i) {
-//         return chainSoFar.then(function() {
-//             return Promise.all(matchesGroup.map(promiseMapper))
-//                 .then(function assignData(matchesArray) {
-//                     matchesArray.forEach(matchHandler); // This is where the handler magic happens - data extracted *outside* of promises
-//                     console.log('Finished batch ending with', (i + 1) * groupSize, 'sending out the next set of requests');
-//                 })
-//             });
-//         }, Promise.resolve());
-// }
-
 function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
     var listSize = list.length;
 
@@ -131,14 +112,67 @@ function promiseGroupedGet(list, groupSize, promiseMapper, matchHandler) {
     }
 
     return groupedList.reduce(function chainPromiseAlls(chainSoFar, matchesGroup, i) {
-        return chainSoFar.then(function() {
+        return chainSoFar.then(function mapAllToPromises() {
             return Promise.all(matchesGroup.map(promiseMapper))
                 .then(function assignData(matchesArray) {
-                    matchesArray.forEach(matchHandler); // This is where the handler magic happens - data extracted *outside* of promises
+                    matchesArray.forEach(matchHandler); // This is where the data magic happens - extracted *outside* of promises, likely using closures
                     console.log('Finished batch ending with', (i + 1) * groupSize, 'sending out the next set of requests');
                 })
             });
         }, Promise.resolve());
+}
+
+function promiseRateLimitedGet(list, limitSize, promiseMapper, matchHandler) {
+    return new Promise(function wrapper(resolve, reject) {
+        var numTotal = list.length;
+        var numActive = 0;
+        var currentPosition = 0;
+
+        var handleResponseAndSendNext = function() {
+            --numActive;
+
+            if (currentPosition >= numTotal) {
+                if (numActive === 0) {
+                    resolve();
+                }
+                return;
+            }
+
+            while (numActive < limitSize && currentPosition < numTotal) {
+                promiseMapper(list[currentPosition]).then(matchHandler).then(handleResponseAndSendNext);
+                ++numActive;
+                ++currentPosition;
+
+                if (currentPosition % limitSize === 0) {
+                    console.log('Finished batch ending with', currentPosition, 'sending out the next set of requests');
+                }
+            }
+        }
+
+        while (numActive < limitSize && currentPosition < numTotal) {
+            promiseMapper(list[currentPosition]).then(matchHandler).then(handleResponseAndSendNext);
+
+            ++numActive;
+            ++currentPosition;
+        }
+    });
+
+    // var listSize = list.length;
+
+    // var groupedList = [];
+    // for (var i = 0; i < list.length; i += limitSize) {
+    //     groupedList.push(list.slice(i, i+limitSize));
+    // }
+
+    // return groupedList.reduce(function chainPromiseAlls(chainSoFar, matchesGroup, i) {
+    //     return chainSoFar.then(function() {
+    //         return Promise.all(matchesGroup.map(promiseMapper))
+    //             .then(function assignData(matchesArray) {
+    //                 matchesArray.forEach(matchHandler); // This is where the handler magic happens - data extracted *outside* of promises
+    //                 console.log('Finished batch ending with', (i + 1) * limitSize, 'sending out the next set of requests');
+    //             })
+    //         });
+    //     }, Promise.resolve());
 }
 
 
@@ -203,6 +237,7 @@ module.exports = {
     exec:               promiseExec,
     wait:               promiseWait,
     groupedGet:         promiseGroupedGet,
+    rateLimitedGet:     promiseRateLimitedGet,
     mongoInsert:        promiseMongoInsert,
     mongoSave:          promiseMongoSave,
     mongoClear:         promiseMongoClear
