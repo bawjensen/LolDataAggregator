@@ -144,7 +144,7 @@ function promiseRateLimitedGet(list, limitSize, promiseMapper, matchHandler) {
                 ++currentPosition;
 
                 if (currentPosition % limitSize === 0) {
-                    console.log('Finished batch ending with', currentPosition, 'sending out the next set of requests');
+                    console.log('Reached', currentPosition, 'requests, continuing');
                 }
             }
         }

@@ -8,7 +8,7 @@ function compileMatches() {
         .then(function fetchMatches(allPlayers) {
             var extractedMatches = {};
 
-            return promise.groupedGet(allPlayers, 50,
+            return promise.rateLimitedGet(allPlayers, 200,
                 function mapMatch(playerTuple) { // How to map a match to a promise request
                     return promise.persistentGet(globals.URL_PREFIX + playerTuple[1] + globals.BASE_URL + playerTuple[1] + globals.MATCH_HISTORY_ROUTE + playerTuple[0] + '?' + globals.KEY_RANKED_QUEUE_QUERY);
                 },
