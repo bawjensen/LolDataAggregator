@@ -1,2 +1,2 @@
 # LolDataAggregator
-Data system for the BuildsAndSkills website
+Data collection system for the BuildsAndSkills website
