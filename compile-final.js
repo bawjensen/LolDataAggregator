@@ -140,7 +140,7 @@ function parseSkillsAndBuys(matchEntry) {
             participant.skillMaxOrder = parseMaxOrder(participant.skills);
         else {
             matchEntry.hasAfker = true;
-            console.log('Match:', matchEntry.matchId, 'participant:', participant.participantId, 'has no skills');
+            // console.log('Match:', matchEntry.matchId, 'participant:', participant.participantId, 'has no skills');
         }
         participant.buys = groupPurchases(participant.buys);
     });
@@ -300,8 +300,8 @@ function parseRoles(matchEntry) {
                     }
 
                     if (!jungler.role) {
-                        console.log('Issue with identifying in match:', matchEntry.matchId);
-                        console.log('Person in question:', matchEntry.participantIdentities[jungler.participantId-1].player.summonerName);
+                        // console.log('Issue with identifying in match:', matchEntry.matchId);
+                        // console.log('Person in question:', matchEntry.participantIdentities[jungler.participantId-1].player.summonerName);
                         issueWithJungler = true;
                     }
                 });
@@ -309,17 +309,17 @@ function parseRoles(matchEntry) {
                 if (!issueWithJungler)
                     fixed = true;
                 else {
-                    console.log('Jungler issue game:', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
-                    team[TOP_LANE].forEach(function(topLaner) {
-                        console.log('Top laner:', matchEntry.participantIdentities[topLaner.participantId-1].player.summonerName);
-                    });
+                    // console.log('Jungler issue game:', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
+                    // team[TOP_LANE].forEach(function(topLaner) {
+                    //     console.log('Top laner:', matchEntry.participantIdentities[topLaner.participantId-1].player.summonerName);
+                    // });
                 }
             }
         }
 
         if (flagged && !fixed) {
             matchEntry.unclearRoles = true;
-            console.log('Flagging match:', matchEntry.matchId, 'team:', teamId, '-', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
+            console.log('Unclassifiable:', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })), '(', matchEntry.matchId, '- team:', teamId === '100' ? 'blue' : 'red', ')');
         }
 
         // console.log('after: ', JSON.stringify(Object.keys(team).map(function(role) { return [role, team[role].length]; })));
